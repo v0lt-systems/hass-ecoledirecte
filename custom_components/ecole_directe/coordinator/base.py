@@ -45,6 +45,9 @@ from custom_components.ecole_directe.const import (
     LOGGER,
     MAX_QUESTIONS,
 )
+from custom_components.ecole_directe.coordinator.deduction import (
+    deduce_hidden_grades,
+)
 from custom_components.ecole_directe.helpers import get_unique_id
 
 if TYPE_CHECKING:
@@ -103,6 +106,9 @@ class EDDataUpdateCoordinator(TimestampDataUpdateCoordinator):
         # Initialize attributes store for oversized attributes persistence
         self._attributes_store = Store(hass, 1, f"ed_attributes_{entry.entry_id}")
         self._stored_attributes: dict[str, Any] = {}
+        # Hidden grades deduced from averages (see coordinator/deduction.py)
+        self._deduction_store = Store(hass, 1, f"ed_notes_deduites_{entry.entry_id}")
+        self._deductions: dict[str, Any] = {}
         # Trusted device (cn/cv) returned by Ecole Directe after the QCM,
         # persisted with the QCM data so that the next logins skip the QCM.
         self._trusted_device: dict[str, str] | None = None
@@ -152,6 +158,10 @@ class EDDataUpdateCoordinator(TimestampDataUpdateCoordinator):
             LOGGER.debug(
                 "Loaded saved attributes data for %s keys", len(self._stored_attributes)
             )
+
+        saved_deductions = await self._deduction_store.async_load()
+        if isinstance(saved_deductions, dict):
+            self._deductions = saved_deductions
 
         # Check for legacy ecoledirecte_qcm.json file, migrate and delete it
         await self.async_migrate_legacy_qcm_file()
@@ -263,6 +273,23 @@ class EDDataUpdateCoordinator(TimestampDataUpdateCoordinator):
             lambda: self._stored_attributes,
             delay=5,
         )
+
+    def _deduce_hidden_grades(self, eleve: EDEleve, grades: dict) -> None:
+        """Fill grades hidden by the school from the subject averages."""
+        try:
+            memory = self._deductions.setdefault(str(eleve.eleve_id), {})
+            if deduce_hidden_grades(
+                grades.get("notes", []),
+                grades.get("disciplines", []),
+                grades.get("code_periode"),
+                memory,
+                grades.get("moyenne_generale", {}).get("dateCalcul"),
+            ):
+                self._deduction_store.async_delay_save(
+                    lambda: self._deductions, delay=5
+                )
+        except Exception:
+            LOGGER.exception("Error deducing hidden grades")
 
     def get_stored_attributes(self, key: str) -> Any | None:
         """Get stored attributes from store."""
@@ -667,6 +694,7 @@ class EDDataUpdateCoordinator(TimestampDataUpdateCoordinator):
                                     f"{eleve.get_fullname_lower()}_moyenne_generale"
                                 ] = grades_evaluations["moyenne_generale"]
 
+                            self._deduce_hidden_grades(eleve, grades_evaluations)
                             self.data[f"{eleve.get_fullname_lower()}_notes"] = (
                                 grades_evaluations["notes"]
                             )

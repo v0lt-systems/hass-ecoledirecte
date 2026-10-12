@@ -479,6 +479,7 @@ class EDApiClient:
                 ):
                     continue
                 response["disciplines"] = get_disciplines_periode(periode_json)
+                response["code_periode"] = periode_json.get("codePeriode")
                 if "ensembleMatieres" in periode_json:
                     response["moyenne_generale"] = {
                         "moyenneGenerale": (
@@ -769,6 +770,7 @@ def get_grade(data: Any, fallback_matiere: str | None = None) -> dict:
         "min": str(data.get("minClasse") or "").replace(".", ","),
         "non_significatif": data.get("nonSignificatif"),
         "date_saisie": data.get("dateSaisie"),
+        "code_periode": data.get("codePeriode"),
         "elements_programme": elements_programme,
     }
 

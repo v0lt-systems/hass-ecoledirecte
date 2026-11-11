@@ -123,15 +123,33 @@ class JSModuleRegistration:
             return parts[1].replace("v=", "")
         return "0"
 
+    def _mode(self) -> str:
+        """Mode des ressources Lovelace (« mode » ou « resource_mode » selon la version de HA)."""
+        return getattr(
+            self.lovelace, "mode", getattr(self.lovelace, "resource_mode", "yaml")
+        )
+
     async def async_unregister(self) -> None:
+        """Supprimer les ressources Lovelace de cette intégration, une fois chargées."""
+        if self._mode() != "storage":
+            return
+
+        async def _check_loaded(_now: Any) -> None:
+            if self.lovelace.resources.loaded:
+                await self._async_unregister_modules()
+            else:
+                async_call_later(self.hass, 5, _check_loaded)
+
+        await _check_loaded(0)
+
+    async def _async_unregister_modules(self) -> None:
         """Supprimer les ressources Lovelace de cette intégration."""
-        if self.lovelace.mode == "storage":
-            for module in JSMODULES:
-                url = f"{URL_BASE}/{module['filename']}"
-                resources = [
-                    r
-                    for r in self.lovelace.resources.async_items()
-                    if r["url"].startswith(url)
-                ]
-                for resource in resources:
-                    await self.lovelace.resources.async_delete_item(resource["id"])
+        for module in JSMODULES:
+            url = f"{URL_BASE}/{module['filename']}"
+            resources = [
+                r
+                for r in self.lovelace.resources.async_items()
+                if r["url"].startswith(url)
+            ]
+            for resource in resources:
+                await self.lovelace.resources.async_delete_item(resource["id"])

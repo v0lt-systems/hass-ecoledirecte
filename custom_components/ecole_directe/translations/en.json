@@ -31,7 +31,8 @@
                     "lunch_break_time": "Lunch break time",
                     "decode_html": "Decode HTML for homeworks - Warning it will delete all HTML (style, links, iFrame, etc.)",
                     "notes_affichees": "Maximum grades to display",
-                    "forcer_modules": "Also fetch grades, timetable and school life when the school disabled them"
+                    "forcer_modules": "Also fetch grades, timetable and school life when the school disabled them",
+                    "cartes_lovelace": "Register the Lovelace cards (EcoleDirecteHACards.js) as a dashboard resource - takes effect after a restart"
                 }
             }
         }

@@ -47,8 +47,22 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_register_frontend(hass: HomeAssistant) -> None:
-    """Enregistrer les modules frontend après le démarrage de HA."""
+    """
+    Enregistrer les modules frontend après le démarrage de HA.
+
+    Si une entrée a désactivé l'option « cartes_lovelace », la ressource
+    Lovelace des cartes n'est pas (ré)enregistrée et celle qui existe est
+    retirée : les tableaux de bord qui n'utilisent pas ces cartes ne chargent
+    plus le script.
+    """
     module_register = JSModuleRegistration(hass)
+    if any(
+        not entry.options.get("cartes_lovelace", True)
+        for entry in hass.config_entries.async_entries(DOMAIN)
+    ):
+        LOGGER.debug("Cartes Lovelace désactivées : ressource retirée")
+        await module_register.async_unregister()
+        return
     await module_register.async_register()
 
 

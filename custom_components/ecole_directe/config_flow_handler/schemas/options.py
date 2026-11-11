@@ -72,6 +72,10 @@ def get_options_schema(defaults: Mapping[str, Any] | None = None) -> vol.Schema:
                 default=defaults.get("forcer_modules", False),
             ): selector.BooleanSelector(),
             vol.Optional(
+                "cartes_lovelace",
+                default=defaults.get("cartes_lovelace", True),
+            ): selector.BooleanSelector(),
+            vol.Optional(
                 "enable_debugging",
                 default=defaults.get("enable_debugging", DEFAULT_ENABLE_DEBUGGING),
             ): selector.BooleanSelector(),

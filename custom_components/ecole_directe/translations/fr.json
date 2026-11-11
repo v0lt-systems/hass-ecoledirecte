@@ -31,7 +31,8 @@
                     "lunch_break_time": "Heure de la pause déjeuner",
                     "decode_html": "Decode HTML pour les devoirs - Attention cela va supprimer tout le HTML (style, liens, iFrame, etc.)",
                     "notes_affichees": "Notes maximum affichées",
-                    "forcer_modules": "Récupérer aussi les notes, l'emploi du temps et la vie scolaire quand l'établissement les a désactivés"
+                    "forcer_modules": "Récupérer aussi les notes, l'emploi du temps et la vie scolaire quand l'établissement les a désactivés",
+                    "cartes_lovelace": "Enregistrer les cartes Lovelace (EcoleDirecteHACards.js) comme ressource des tableaux de bord - prend effet au redémarrage"
                 }
             }
         }

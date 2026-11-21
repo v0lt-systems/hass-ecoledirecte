@@ -11,6 +11,7 @@ https://developers.home-assistant.io/docs/integration_fetching_data#coordinated-
 
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import date, datetime, timedelta, tzinfo
 from typing import TYPE_CHECKING, Any
@@ -49,6 +50,9 @@ from custom_components.ecole_directe.coordinator.deduction import (
     deduce_hidden_grades,
 )
 from custom_components.ecole_directe.helpers import get_unique_id
+
+# Seconds to wait before the second login attempt of an update.
+LOGIN_RETRY_DELAY = 10
 
 if TYPE_CHECKING:
     from logging import Logger
@@ -382,6 +386,35 @@ class EDDataUpdateCoordinator(TimestampDataUpdateCoordinator):
                     "Error while migrating legacy QCM file '%s': %s", file_path_str, err
                 )
 
+    async def _async_login(self, client: EDApiClient) -> None:
+        """
+        Log in, retrying once after a short pause.
+
+        A failed login used to be swallowed (``return self.data``): the
+        update counted as a success, every entity kept its previous value and
+        stayed available, and dashboards showed yesterday's homework as
+        today's. A transient refusal gets one more try; a second failure
+        raises UpdateFailed so that Home Assistant marks the update as failed
+        (entities unavailable, last_update_success False) until the next
+        successful login.
+        """
+        try:
+            await client.login()
+        except QCMException:
+            raise
+        except Exception as first:
+            LOGGER.warning("Ecole Directe login failed (%s), retrying once", first)
+            await client.close()
+            await asyncio.sleep(LOGIN_RETRY_DELAY)
+            try:
+                await client.login()
+            except QCMException:
+                raise
+            except Exception as err:
+                LOGGER.error("Unknown error on login, twice: %s", err)
+                msg = f"Ecole Directe login failed: {err}"
+                raise UpdateFailed(msg) from err
+
     async def _async_update_data(self) -> Any:
         """
         Fetch data from API endpoint.
@@ -442,12 +475,9 @@ class EDDataUpdateCoordinator(TimestampDataUpdateCoordinator):
                     client.cv = self._trusted_device["cv"]
 
                 try:
-                    await client.login()
+                    await self._async_login(client)
                 except QCMException:
                     LOGGER.warning("QCM verification pending for ecole directe client")
-                    return self.data
-                except Exception:
-                    LOGGER.critical("Unknown error on login")
                     return self.data
 
                 await self._async_remember_trusted_device(client)
